@@ -1,0 +1,2 @@
+import 'dotenv/config';
+export const env = { nodeEnv: process.env.NODE_ENV || 'development', port: Number(process.env.PORT || 4000), mongoUri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ticket-booking', jwtSecret: process.env.JWT_SECRET || 'development-only-secret-change-me', clientUrl: process.env.CLIENT_URL || 'http://localhost:5173', holdMinutes: Number(process.env.HOLD_TTL_MINUTES || 10), offerMinutes: Number(process.env.WAITLIST_OFFER_TTL_MINUTES || 10), emailMode: process.env.EMAIL_MODE || 'console' };

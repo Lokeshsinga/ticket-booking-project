@@ -1,0 +1,2 @@
+import { createServer } from 'node:http'; import { Server } from 'socket.io'; import { app } from './app.js'; import { connectDb } from './config/db.js'; import { env } from './config/env.js'; import { configureSockets } from './sockets/index.js'; import { setIo } from './services/realtime.js'; import { startJobs } from './jobs/worker.js';
+const http=createServer(app);const io=new Server(http,{cors:{origin:env.clientUrl}});configureSockets(io);setIo(io);await connectDb(env.mongoUri);startJobs();http.listen(env.port,()=>console.log(`API on :${env.port}`));

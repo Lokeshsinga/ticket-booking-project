@@ -1,0 +1,9 @@
+# System Design
+
+Each show stores its own seat inventory, so a booking is always scoped to one show. A hold uses one MongoDB `findOneAndUpdate`: its predicate verifies that every requested seat exists and is either available or expired, then an aggregation update writes the same generated hold ID, owner, and expiry to every selected seat. Because a MongoDB document update is atomic, competing requests cannot both acquire a seat.
+
+Holds are explicitly released every 30 seconds by an idempotent worker. It uses another conditional atomic update, rather than relying on TTL deletion, and emits the updated show inventory through its Socket.IO room. Booking runs in a MongoDB transaction: it verifies hold ownership and expiry, converts seats to booked, creates the booking and QR payload, and commits together. The asynchronous email delivery is deliberately after commit; a failure records `FAILED` and never undoes a valid booking.
+
+Cancellation is transactional and returns the seats to available. For each freed seat, FIFO waitlist allocation atomically changes the oldest `WAITING` entry to `OFFERED`, creates a hashed-token offer, and reserves the specific seat. A partial unique index prevents two active offers for an entry. Expired offers are conditionally claimed by the worker, their seat is released only if it still belongs to that offer, and the next eligible entry is offered the seat. Thus repeated job execution cannot create duplicate offers or release a newly held seat.
+
+Socket.IO clients join `show:<id>` rooms. Every successful hold, release, booking, cancellation, and offer reservation broadcasts the server-authoritative seat list only to that room. JWT middleware authenticates users and RBAC middleware protects organiser and admin endpoints; roles are only read from signed tokens.

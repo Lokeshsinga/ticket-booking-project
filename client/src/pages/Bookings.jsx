@@ -1,0 +1,4 @@
+import {useEffect,useState} from 'react';
+import {api} from '../services/api.js';
+export default function Bookings(){const [bookings,setBookings]=useState([]);const [error,setError]=useState('');const load=()=>api.get('/bookings').then(r=>setBookings(r.data.bookings)).catch(()=>setError('Please log in to view bookings.'));useEffect(load,[]);const cancel=async(id)=>{try{await api.post(`/bookings/${id}/cancel`);load();}catch(x){setError(x.response?.data?.error||'Unable to cancel booking.')}};return <main><h1>My bookings</h1><p>{error}</p>{bookings.map(b=><article key={b._id}><h2>{b.show?.event?.title||'Booking'}</h2><p>{b.reference} · {b.seats.map(s=>s.seatId).join(', ')} · {b.status}</p>{b.qrCode&&<img className="qr" src={b.qrCode} alt={`QR ticket ${b.reference}`}/>} {b.status==='CONFIRMED'&&<button onClick={()=>cancel(b._id)}>Cancel booking</button>}</article>)}</main>}
+import React from 'react';

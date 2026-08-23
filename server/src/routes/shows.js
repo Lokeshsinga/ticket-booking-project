@@ -1,0 +1,4 @@
+import { Router } from 'express'; import { z } from 'zod'; import { Show } from '../models/Show.js'; import { authenticate } from '../middleware/auth.js'; import { holdSeats } from '../services/bookingService.js';
+const router=Router(); const hold=z.object({seatIds:z.array(z.string()).min(1)});
+router.get('/:showId/seats',async(req,res,next)=>{try{const show=await Show.findById(req.params.showId).select('seats');if(!show)return res.status(404).json({error:'Show not found.'});res.json({seats:show.seats.map(({seatId,row,number,category,price,status,holdExpiresAt})=>({seatId,row,number,category,price,status,holdExpiresAt}))});}catch(e){next(e);}});
+router.post('/:showId/holds',authenticate,async(req,res,next)=>{try{const {seatIds}=hold.parse(req.body);res.status(201).json(await holdSeats({showId:req.params.showId,userId:req.user.id,seatIds}));}catch(e){next(e);}}); export default router;

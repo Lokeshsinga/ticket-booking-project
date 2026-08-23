@@ -1,0 +1,2 @@
+import {useEffect,useState} from 'react';import {useParams,Link} from 'react-router-dom';import {api} from '../services/api.js';export default function EventDetails(){const {id}=useParams();const [data,setData]=useState();useEffect(()=>{api.get(`/events/${id}`).then(r=>setData(r.data))},[id]);if(!data)return <main>Loading…</main>;return <main><h1>{data.event.title}</h1><p>{data.event.description}</p>{data.shows.map(s=><p key={s._id}><Link to={`/shows/${s._id}`}>{new Date(s.startsAt).toLocaleString()} — {s.venue.name}</Link></p>)}</main>}
+import React from 'react';

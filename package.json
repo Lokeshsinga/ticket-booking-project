@@ -1,0 +1,5 @@
+{
+  "name": "ticket-booking-system", "private": true, "workspaces": ["server", "client"],
+  "scripts": { "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"", "build": "npm run build -w client", "test": "npm test -w server", "lint": "npm run lint -w server && npm run lint -w client", "seed": "npm run seed -w server" },
+  "devDependencies": { "concurrently": "^9.1.2" }
+}
