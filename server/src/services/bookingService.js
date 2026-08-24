@@ -11,7 +11,10 @@ import {
 } from '../models/Waitlist.js';
 
 import { env } from '../config/env.js';
-import { emitSeats } from './realtime.js';
+import {
+  emitSeats,
+  emitWaitlistOffer
+} from './realtime.js';
 import { sendEmail } from './email.js';
 
 const expireAt = (minutes) =>
@@ -848,10 +851,24 @@ export async function offerNextWaitlisted(
    */
 
   if (offerResult) {
-    const user =
-      await User.findById(
-        offerResult.userId
-      );
+  const user =
+    await User.findById(
+      offerResult.userId
+    );
+
+  // Notify the specific waitlisted user in real time
+  emitWaitlistOffer(
+    offerResult.userId,
+    {
+      showId: String(showId),
+      seatId,
+      category,
+      expiresAt: offerResult.offer.expiresAt,
+      offerToken: offerResult.token
+    }
+  );
+
+  
 
     const offerUrl =
       `${env.clientUrl}/waitlist/offer/${offerResult.token}`;
