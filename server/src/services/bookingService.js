@@ -375,6 +375,9 @@ export async function confirmBooking({
 
       let acceptedOffer = null;
 
+      /*
+       * WAITLIST OFFER
+       */
       if (offerId) {
         const offerQuery =
           WaitlistOffer.findOneAndUpdate(
@@ -412,10 +415,12 @@ export async function confirmBooking({
         }
       }
 
-      const showQuery =
-        Show.findOne({
-          _id: showId
-        });
+      /*
+       * GET SHOW
+       */
+      const showQuery = Show.findOne({
+        _id: showId
+      });
 
       if (session) {
         showQuery.session(session);
@@ -430,18 +435,21 @@ export async function confirmBooking({
         );
       }
 
+      /*
+       * VERIFY HOLD
+       */
       const held = show.seats.filter(
-        s =>
-          s.holdId === holdId &&
-          String(s.heldBy) === String(userId)
+        seat =>
+          seat.holdId === holdId &&
+          String(seat.heldBy) === String(userId)
       );
 
       if (
         !held.length ||
         held.some(
-          s =>
-            s.status !== 'HELD' ||
-            s.holdExpiresAt <= now
+          seat =>
+            seat.status !== 'HELD' ||
+            seat.holdExpiresAt <= now
         )
       ) {
         throw Object.assign(
@@ -452,6 +460,9 @@ export async function confirmBooking({
         );
       }
 
+      /*
+       * VERIFY WAITLIST OFFER MATCH
+       */
       if (
         acceptedOffer &&
         (
@@ -469,12 +480,15 @@ export async function confirmBooking({
         );
       }
 
-      show.seats.forEach(s => {
+      /*
+       * MARK SEATS AS BOOKED
+       */
+      show.seats.forEach(seat => {
         if (
-          s.holdId === holdId &&
-          String(s.heldBy) === String(userId)
+          seat.holdId === holdId &&
+          String(seat.heldBy) === String(userId)
         ) {
-          Object.assign(s, {
+          Object.assign(seat, {
             status: 'BOOKED',
             holdId: undefined,
             heldBy: undefined,
@@ -483,12 +497,18 @@ export async function confirmBooking({
         }
       });
 
+      /*
+       * CREATE BOOKING REFERENCE
+       */
       const reference =
         `BK-${crypto
           .randomBytes(5)
           .toString('hex')
           .toUpperCase()}`;
 
+      /*
+       * GENERATE QR CODE
+       */
       const qrCode =
         await QRCode.toDataURL(
           JSON.stringify({
@@ -496,6 +516,9 @@ export async function confirmBooking({
           })
         );
 
+      /*
+       * CREATE BOOKING
+       */
       const booking =
         await Booking.create(
           [
@@ -503,10 +526,10 @@ export async function confirmBooking({
               reference,
               user: userId,
               show: showId,
-              seats: held.map(s => ({
-                seatId: s.seatId,
-                category: s.category,
-                price: s.price
+              seats: held.map(seat => ({
+                seatId: seat.seatId,
+                category: seat.category,
+                price: seat.price
               })),
               qrCode
             }
@@ -516,6 +539,9 @@ export async function confirmBooking({
             : {}
         );
 
+      /*
+       * FULFILL WAITLIST ENTRY
+       */
       if (acceptedOffer) {
         const entryUpdate =
           WaitlistEntry.updateOne(
@@ -537,6 +563,9 @@ export async function confirmBooking({
         await entryUpdate;
       }
 
+      /*
+       * SAVE SHOW
+       */
       await show.save(
         session
           ? { session }
@@ -550,27 +579,81 @@ export async function confirmBooking({
     }
   );
 
-  const user =
-    await User.findById(userId);
+  /*
+   * UPDATE SEATS IMMEDIATELY
+   */
+  emitSeats(
+    showId,
+    result.seats
+  );
 
+  /*
+   * SEND EMAIL IN BACKGROUND
+   *
+   * IMPORTANT:
+   * Do not await this operation.
+   *
+   * Booking confirmation should not wait
+   * for SMTP/Gmail.
+   */
+  sendBookingEmail(
+    result.booking,
+    userId
+  ).catch(error => {
+    console.error(
+      'Background booking email failed:',
+      error.message
+    );
+  });
+
+  /*
+   * RETURN BOOKING IMMEDIATELY
+   */
+  return result.booking;
+}
+
+
+/* =========================================================
+   BACKGROUND BOOKING EMAIL
+   ========================================================= */
+
+async function sendBookingEmail(
+  booking,
+  userId
+) {
   try {
+    const user =
+      await User.findById(userId);
+
+    if (!user?.email) {
+      throw new Error(
+        'Customer email address not found.'
+      );
+    }
+
     const emailStatus =
       await sendEmail({
-        to: user?.email,
+        to: user.email,
+
         subject:
-          `Ticket ${result.booking.reference}`,
+          `Ticket ${booking.reference}`,
+
         text:
-          `Your booking ${result.booking.reference} ` +
+          `Your booking ${booking.reference} ` +
           `is confirmed. Seats: ` +
-          `${result.booking.seats
-            .map(s => s.seatId)
+          `${booking.seats
+            .map(seat => seat.seatId)
             .join(', ')}`,
+
         attachments: [
           {
             filename:
-              `${result.booking.reference}.png`,
+              `${booking.reference}.png`,
+
             content:
-              result.booking.qrCode.split(',')[1],
+              booking.qrCode
+                .split(',')[1],
+
             encoding: 'base64'
           }
         ]
@@ -578,7 +661,7 @@ export async function confirmBooking({
 
     await Booking.updateOne(
       {
-        _id: result.booking._id
+        _id: booking._id
       },
       {
         $set: {
@@ -586,10 +669,19 @@ export async function confirmBooking({
         }
       }
     );
-  } catch {
+
+    console.log(
+      `Booking email sent: ${booking.reference}`
+    );
+  } catch (error) {
+    console.error(
+      `Booking email failed for ${booking.reference}:`,
+      error.message
+    );
+
     await Booking.updateOne(
       {
-        _id: result.booking._id
+        _id: booking._id
       },
       {
         $set: {
@@ -598,13 +690,6 @@ export async function confirmBooking({
       }
     );
   }
-
-  emitSeats(
-    showId,
-    result.seats
-  );
-
-  return result.booking;
 }
 
 
