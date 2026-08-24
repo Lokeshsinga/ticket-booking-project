@@ -1,5 +1,7 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { env } from '../config/env.js';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendEmail({
   to,
@@ -15,35 +17,32 @@ export async function sendEmail({
     return 'CONSOLE';
   }
 
-  const port = Number(
-    process.env.SMTP_PORT || 465
-  );
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not configured.');
+  }
 
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port,
-    secure: port === 465,
-
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASSWORD
-    },
-
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 15000
-  });
-
-  await transporter.sendMail({
+  const response = await resend.emails.send({
     from:
       process.env.EMAIL_FROM ||
-      process.env.SMTP_USER,
+      'Ticketly <onboarding@resend.dev>',
 
-    to,
+    to: [to],
+
     subject,
+
     text,
-    attachments
+
+    attachments: attachments.map((attachment) => ({
+      filename: attachment.filename,
+      content: attachment.content
+    }))
   });
+
+  if (response.error) {
+    throw new Error(
+      response.error.message || 'Resend email failed'
+    );
+  }
 
   return 'SENT';
 }
