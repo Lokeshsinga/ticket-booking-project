@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../services/api';
+import { api } from '../services/api.js';
 
 export default function WaitlistOffer() {
   const { token } = useParams();
@@ -18,13 +18,18 @@ export default function WaitlistOffer() {
         `/waitlist/offers/${token}/accept`
       );
 
-      setMessage('Waitlist offer accepted successfully!');
+      setMessage(
+        'Waitlist offer accepted successfully!'
+      );
+
+      console.log(
+        'Booking:',
+        response.data.booking
+      );
 
       setTimeout(() => {
         navigate('/bookings');
       }, 1000);
-
-      console.log('Booking:', response.data.booking);
     } catch (error) {
       setMessage(
         error.response?.data?.error ||
@@ -51,7 +56,9 @@ export default function WaitlistOffer() {
         onClick={acceptOffer}
         disabled={loading}
       >
-        {loading ? 'Accepting...' : 'Accept Offer'}
+        {loading
+          ? 'Accepting...'
+          : 'Accept Offer'}
       </button>
 
       {message && <p>{message}</p>}
