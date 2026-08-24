@@ -6,7 +6,8 @@ import {
   Route,
   Link
 } from 'react-router-dom';
-
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import Events from './pages/Events.jsx';
 import EventDetails from './pages/EventDetails.jsx';
 import SeatSelection from './pages/SeatSelection.jsx';
@@ -34,9 +35,17 @@ function App() {
         <Route path="/events/:id" element={<EventDetails />} />
         <Route path="/shows/:showId" element={<SeatSelection />} />
         <Route path="/login" element={<Login />} />
+        <Route
+  path="/forgot-password"
+  element={<ForgotPassword />}
+/>
         <Route path="/register" element={<Register />} />
         <Route path="/bookings" element={<Bookings />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route
+  path="/reset-password/:token"
+  element={<ResetPassword />}
+/>
 
         {/* Waitlist offer acceptance */}
         <Route
